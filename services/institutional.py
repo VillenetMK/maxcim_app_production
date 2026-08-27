@@ -69,6 +69,7 @@ class InstitutionalClient:
         *,
         base_url: str,
         login_path: str,
+        google_login_path: str,
         classrooms_path: str,
         student_path: str,
         service_token: str,
@@ -77,6 +78,7 @@ class InstitutionalClient:
     ):
         self.base_url = base_url.rstrip("/") + "/" if base_url else ""
         self.login_path = login_path
+        self.google_login_path = google_login_path
         self.classrooms_path = classrooms_path
         self.student_path = student_path
         self.service_token = service_token
@@ -89,6 +91,9 @@ class InstitutionalClient:
         return cls(
             base_url=str(config.get("INSTITUTIONAL_API_BASE_URL") or "").strip(),
             login_path=str(config.get("INSTITUTIONAL_API_LOGIN_PATH") or "").strip(),
+            google_login_path=str(
+                config.get("INSTITUTIONAL_API_GOOGLE_LOGIN_PATH") or ""
+            ).strip(),
             classrooms_path=str(config.get("INSTITUTIONAL_API_CLASSROOMS_PATH") or "").strip(),
             student_path=str(config.get("INSTITUTIONAL_API_STUDENT_PATH") or "").strip(),
             service_token=str(config.get("INSTITUTIONAL_API_SERVICE_TOKEN") or "").strip(),
@@ -103,6 +108,10 @@ class InstitutionalClient:
     @property
     def recognition_ready(self) -> bool:
         return bool(self.base_url and self.student_path and self.service_token)
+
+    @property
+    def google_login_ready(self) -> bool:
+        return bool(self.base_url and self.google_login_path)
 
     def _url(self, path: str) -> str:
         if not self.base_url:
@@ -155,14 +164,7 @@ class InstitutionalClient:
             )
         return value
 
-    def authenticate(self, institutional_id: str, credential: str) -> AuthenticatedTeacher:
-        if not self.login_ready:
-            raise InstitutionalConfigurationError()
-        payload = self._request(
-            "POST",
-            self.login_path,
-            payload={"institutional_id": institutional_id, "credential": credential},
-        )
+    def _parse_authenticated_teacher(self, payload: Any) -> AuthenticatedTeacher:
         if not isinstance(payload, dict) or not isinstance(payload.get("teacher"), dict):
             raise InstitutionalAPIError("La respuesta de inicio de sesión no cumple el contrato MAXCIM.")
 
@@ -190,6 +192,35 @@ class InstitutionalClient:
             access_token=access_token,
             expires_in_seconds=expires_in,
         )
+
+    def authenticate(self, institutional_id: str, credential: str) -> AuthenticatedTeacher:
+        if not self.login_ready:
+            raise InstitutionalConfigurationError()
+        payload = self._request(
+            "POST",
+            self.login_path,
+            payload={"institutional_id": institutional_id, "credential": credential},
+        )
+        return self._parse_authenticated_teacher(payload)
+
+    def authenticate_google(self, verified_id_token: str) -> AuthenticatedTeacher:
+        """Exchange a verified Google ID token for the institutional session.
+
+        The institutional API must validate the token again and map its stable
+        Google subject/email to an active teacher record. MAXCIM never creates a
+        teacher solely from Google profile claims.
+        """
+
+        if not self.google_login_ready:
+            raise InstitutionalConfigurationError(
+                "La validación institucional del acceso con Google no está configurada."
+            )
+        payload = self._request(
+            "POST",
+            self.google_login_path,
+            payload={"id_token": verified_id_token},
+        )
+        return self._parse_authenticated_teacher(payload)
 
     def list_teacher_classrooms(self, access_token: str, teacher_id: str) -> list[Classroom]:
         if not self.login_ready:

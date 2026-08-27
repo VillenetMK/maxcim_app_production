@@ -35,6 +35,39 @@ Respuesta canónica que consume el adaptador actual:
 
 Solo `DOCENTE/TEACHER` con estado `ACTIVO/ACTIVE` puede entrar. El token se cifra en la base propia y nunca se devuelve al navegador.
 
+### 1.1 Acceso docente con Google Workspace
+
+La aplicación realiza OpenID Connect con Google mediante autorización de
+servidor, `state`, `nonce` y PKCE. Valida la firma, audiencia, expiración, correo
+verificado y el dominio Workspace permitido. Después envía el ID token a la API
+institucional; no crea una docente usando únicamente los datos de Google.
+
+La ruta se configura mediante `INSTITUTIONAL_API_GOOGLE_LOGIN_PATH`.
+
+```http
+POST {INSTITUTIONAL_API_BASE_URL}{INSTITUTIONAL_API_GOOGLE_LOGIN_PATH}
+Content-Type: application/json
+```
+
+```json
+{
+  "id_token": "<id_token_firmado_por_google>"
+}
+```
+
+La API institucional debe volver a validar el ID token, asociar `sub` o el correo
+con un registro docente activo y devolver la misma respuesta canónica de la
+sección 1. Una cuenta Google no asociada debe responder `401` o `403`.
+
+El callback público que se registra exactamente en Google Cloud es:
+
+```text
+https://<dominio-maxcim>/auth/google/callback
+```
+
+MAXCIM descarta los tokens de Google después del canje y conserva únicamente el
+token institucional cifrado.
+
 ## 2. Aulas asignadas
 
 La ruta se configura mediante `INSTITUTIONAL_API_CLASSROOMS_PATH` y admite `{teacher_id}`.

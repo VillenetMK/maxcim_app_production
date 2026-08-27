@@ -41,6 +41,7 @@ from models import (
     TurnoConversacion,
 )
 from services.evaluation import calculate_base_metrics, generate_ai_assessment
+from services.google_oauth import GoogleOIDCClient, GoogleOIDCError
 from services.institutional import (
     InstitutionalAPIError,
     InstitutionalClient,
@@ -511,11 +512,19 @@ def create_app(test_config: dict | None = None):
         SESSION_TOKEN_ENCRYPTION_KEY=os.environ.get("SESSION_TOKEN_ENCRYPTION_KEY", ""),
         INSTITUTIONAL_API_BASE_URL=os.environ.get("INSTITUTIONAL_API_BASE_URL", ""),
         INSTITUTIONAL_API_LOGIN_PATH=os.environ.get("INSTITUTIONAL_API_LOGIN_PATH", ""),
+        INSTITUTIONAL_API_GOOGLE_LOGIN_PATH=os.environ.get(
+            "INSTITUTIONAL_API_GOOGLE_LOGIN_PATH", ""
+        ),
         INSTITUTIONAL_API_CLASSROOMS_PATH=os.environ.get("INSTITUTIONAL_API_CLASSROOMS_PATH", ""),
         INSTITUTIONAL_API_STUDENT_PATH=os.environ.get("INSTITUTIONAL_API_STUDENT_PATH", ""),
         INSTITUTIONAL_API_SERVICE_TOKEN=os.environ.get("INSTITUTIONAL_API_SERVICE_TOKEN", ""),
         INSTITUTIONAL_API_TIMEOUT_SECONDS=float(os.environ.get("INSTITUTIONAL_API_TIMEOUT_SECONDS", "8")),
         INSTITUTIONAL_API_VERIFY_TLS=env_bool("INSTITUTIONAL_API_VERIFY_TLS", True),
+        GOOGLE_OAUTH_CLIENT_ID=os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
+        GOOGLE_OAUTH_CLIENT_SECRET=os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+        GOOGLE_OAUTH_ALLOWED_DOMAINS=os.environ.get("GOOGLE_OAUTH_ALLOWED_DOMAINS", ""),
+        GOOGLE_OAUTH_REDIRECT_URI=os.environ.get("GOOGLE_OAUTH_REDIRECT_URI", ""),
+        GOOGLE_OAUTH_TIMEOUT_SECONDS=float(os.environ.get("GOOGLE_OAUTH_TIMEOUT_SECONDS", "8")),
         SESSION_COOKIE_NAME="maxcim_session",
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -527,6 +536,10 @@ def create_app(test_config: dict | None = None):
 
     institutional_client = app.config.get("INSTITUTIONAL_CLIENT") or InstitutionalClient.from_config(app.config)
     app.extensions["institutional_client"] = institutional_client
+    google_oidc_client = app.config.get("GOOGLE_OIDC_CLIENT") or GoogleOIDCClient.from_config(
+        app.config
+    )
+    app.extensions["google_oidc_client"] = google_oidc_client
 
     def token_cipher() -> Fernet:
         key = str(app.config.get("SESSION_TOKEN_ENCRYPTION_KEY") or "").strip()
@@ -540,6 +553,75 @@ def create_app(test_config: dict | None = None):
             raise InstitutionalConfigurationError(
                 "SESSION_TOKEN_ENCRYPTION_KEY no tiene un formato Fernet válido."
             ) from exc
+
+    def safe_next_path(value: str | None) -> str:
+        candidate = str(value or "")
+        return (
+            candidate
+            if candidate.startswith("/") and not candidate.startswith("//")
+            else url_for("dashboard")
+        )
+
+    def complete_teacher_login(authenticated, next_path: str | None = None):
+        cipher = token_cipher()
+        web_session = SesionWebDocente(
+            id=str(uuid.uuid4()),
+            id_docente_institucional=authenticated.institutional_id,
+            nombre_docente=authenticated.display_name,
+            rol=authenticated.role,
+            token_cifrado=cipher.encrypt(authenticated.access_token.encode("utf-8")),
+            expira_en=utc_now() + timedelta(seconds=authenticated.expires_in_seconds),
+            ultimo_acceso_en=utc_now(),
+        )
+        db.session.add(web_session)
+        db.session.commit()
+        destination = safe_next_path(next_path)
+        browser_session.clear()
+        browser_session["teacher_session_id"] = web_session.id
+        browser_session.permanent = True
+        return redirect(destination)
+
+    def login_readiness() -> dict[str, bool]:
+        secure_session_ready = bool(
+            app.config.get("SECRET_KEY")
+            and app.config.get("SESSION_TOKEN_ENCRYPTION_KEY")
+        )
+        password_ready = bool(
+            secure_session_ready and getattr(institutional_client, "login_ready", False)
+        )
+        google_ready = bool(
+            secure_session_ready
+            and getattr(institutional_client, "google_login_ready", False)
+            and getattr(google_oidc_client, "ready", False)
+        )
+        return {
+            "password_ready": password_ready,
+            "google_ready": google_ready,
+            "any_ready": password_ready or google_ready,
+        }
+
+    def render_login_page(error: str | None = None, status_code: int = 200):
+        if not error and app.config.get("SECRET_KEY"):
+            error = browser_session.pop("google_login_error", None)
+        readiness = login_readiness()
+        return render_template(
+            "login.html",
+            error=error,
+            api_ready=readiness["any_ready"],
+            password_ready=readiness["password_ready"],
+            google_ready=readiness["google_ready"],
+        ), status_code
+
+    def google_redirect_uri() -> str:
+        configured = str(app.config.get("GOOGLE_OAUTH_REDIRECT_URI") or "").strip()
+        if configured:
+            return configured
+        scheme = "https" if app.config.get("SESSION_COOKIE_SECURE") else request.scheme
+        return url_for("google_callback", _external=True, _scheme=scheme)
+
+    def google_error_redirect(message: str):
+        browser_session["google_login_error"] = message
+        return redirect(url_for("login"))
 
     def current_teacher() -> dict | None:
         cached = getattr(g, "maxcim_teacher", None)
@@ -630,7 +712,7 @@ def create_app(test_config: dict | None = None):
         if not expected or not received or not hmac.compare_digest(expected, received):
             if request.path.startswith("/api/"):
                 return jsonify({"error": "La solicitud no superó la validación de seguridad."}), 403
-            return render_template("login.html", error="La sesión del formulario expiró.", api_ready=False), 403
+            return render_login_page("La sesión del formulario expiró.", 403)
         return None
 
     @app.after_request
@@ -639,9 +721,14 @@ def create_app(test_config: dict | None = None):
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-        if request.path.startswith("/api/") or request.path in {
+        if (
+            request.path.startswith("/api/")
+            or request.path.startswith("/auth/")
+            or request.path.startswith("/login")
+            or request.path in {
             "/dashboard", "/material", "/sesiones",
-        }:
+            }
+        ):
             response.headers.setdefault("Cache-Control", "no-store")
         return response
 
@@ -676,38 +763,75 @@ def create_app(test_config: dict | None = None):
             else:
                 try:
                     authenticated = institutional_client.authenticate(institutional_id, credential)
-                    cipher = token_cipher()
-                    web_session = SesionWebDocente(
-                        id=str(uuid.uuid4()),
-                        id_docente_institucional=authenticated.institutional_id,
-                        nombre_docente=authenticated.display_name,
-                        rol=authenticated.role,
-                        token_cifrado=cipher.encrypt(authenticated.access_token.encode("utf-8")),
-                        expira_en=utc_now() + timedelta(seconds=authenticated.expires_in_seconds),
-                        ultimo_acceso_en=utc_now(),
+                    return complete_teacher_login(
+                        authenticated,
+                        request.args.get("next"),
                     )
-                    db.session.add(web_session)
-                    db.session.commit()
-                    browser_session.clear()
-                    browser_session["teacher_session_id"] = web_session.id
-                    browser_session.permanent = True
-                    next_path = request.args.get("next", "")
-                    safe_next_path = (
-                        next_path
-                        if next_path.startswith("/") and not next_path.startswith("//")
-                        else url_for("dashboard")
-                    )
-                    return redirect(safe_next_path)
                 except InstitutionalAPIError as exc:
                     error = str(exc)
                     status_code = exc.status_code
 
-        api_ready = bool(
-            institutional_client.login_ready
-            and app.config.get("SECRET_KEY")
-            and app.config.get("SESSION_TOKEN_ENCRYPTION_KEY")
+        return render_login_page(error, status_code)
+
+    @app.route("/login/google")
+    def google_login():
+        if current_teacher():
+            return redirect(url_for("dashboard"))
+        if not login_readiness()["google_ready"]:
+            return render_login_page(
+                "El acceso institucional con Google todavía no está configurado.",
+                503,
+            )
+
+        state = secrets.token_urlsafe(32)
+        nonce = secrets.token_urlsafe(32)
+        code_verifier, code_challenge = google_oidc_client.create_pkce_pair()
+        browser_session["google_oauth_state"] = state
+        browser_session["google_oauth_nonce"] = nonce
+        browser_session["google_oauth_code_verifier"] = code_verifier
+        browser_session["google_oauth_next"] = safe_next_path(request.args.get("next"))
+        authorization_url = google_oidc_client.authorization_url(
+            redirect_uri=google_redirect_uri(),
+            state=state,
+            nonce=nonce,
+            code_challenge=code_challenge,
         )
-        return render_template("login.html", error=error, api_ready=api_ready), status_code
+        return redirect(authorization_url)
+
+    @app.route("/auth/google/callback")
+    def google_callback():
+        expected_state = str(browser_session.pop("google_oauth_state", ""))
+        nonce = str(browser_session.pop("google_oauth_nonce", ""))
+        code_verifier = str(browser_session.pop("google_oauth_code_verifier", ""))
+        next_path = str(browser_session.pop("google_oauth_next", ""))
+
+        if request.args.get("error"):
+            return google_error_redirect("El acceso con Google fue cancelado.")
+        received_state = str(request.args.get("state") or "")
+        code = str(request.args.get("code") or "")
+        if (
+            not expected_state
+            or not received_state
+            or not hmac.compare_digest(expected_state, received_state)
+            or not nonce
+            or not code_verifier
+            or not code
+        ):
+            return google_error_redirect(
+                "La respuesta de Google no corresponde a esta sesión de acceso."
+            )
+
+        try:
+            identity = google_oidc_client.exchange_and_verify(
+                code=code,
+                redirect_uri=google_redirect_uri(),
+                nonce=nonce,
+                code_verifier=code_verifier,
+            )
+            authenticated = institutional_client.authenticate_google(identity.id_token)
+            return complete_teacher_login(authenticated, next_path)
+        except (GoogleOIDCError, InstitutionalAPIError) as exc:
+            return google_error_redirect(str(exc))
 
     @app.route("/logout", methods=["POST"])
     def logout():

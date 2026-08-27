@@ -7,6 +7,7 @@ La estudiante o el estudiante conversa oralmente con MAXCIM. La docente utiliza 
 ## Capacidades conservadas
 
 1. La docente inicia sesión con su identidad institucional.
+   Puede utilizar su ID y credencial o su cuenta autorizada de Google Workspace.
 2. La aplicación carga únicamente las aulas asignadas por la API del colegio.
 3. La docente sube un documento o crea un cuento con las elecciones del alumno y elige una duración de 1 a 15 minutos.
 4. Gemini ajusta la extensión, narra el cuento completo con ritmo adaptativo, genera el resumen y propone preguntas con respuestas esperadas.
@@ -97,9 +98,14 @@ compatibilidad con las versiones administradas de MySQL usadas en producción.
 | `MYSQL_*` | Conexión a la base propia de MAXCIM |
 | `INSTITUTIONAL_API_BASE_URL` | URL autorizada de la API principal |
 | `INSTITUTIONAL_API_LOGIN_PATH` | Inicio de sesión docente |
+| `INSTITUTIONAL_API_GOOGLE_LOGIN_PATH` | Canje del ID token de Google por una sesión institucional |
 | `INSTITUTIONAL_API_CLASSROOMS_PATH` | Aulas de la docente autenticada |
 | `INSTITUTIONAL_API_STUDENT_PATH` | Perfil y matrículas del ID reconocido |
 | `INSTITUTIONAL_API_SERVICE_TOKEN` | Credencial servidor-a-servidor para validación facial |
+| `GOOGLE_OAUTH_CLIENT_ID` | Cliente web OpenID Connect de Google Workspace |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Secreto del cliente web, solo en el servidor |
+| `GOOGLE_OAUTH_ALLOWED_DOMAINS` | Dominios Workspace institucionales permitidos |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Callback HTTPS registrado exactamente en Google Cloud |
 | `GOOGLE_API_KEY` | Cuentos, resumen, preguntas, evaluación y narración TTS |
 | `MAXCIM_WEBHOOK_SECRET` | Autentica a MAXCIM y al servicio facial |
 | `FACE_MATCH_MIN_CONFIDENCE` | Umbral mínimo de reconocimiento |
