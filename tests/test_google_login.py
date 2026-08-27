@@ -103,6 +103,12 @@ def test_google_login_creates_only_an_institutional_teacher_session():
         login_page = client.get("/login")
         assert login_page.status_code == 200
         assert b"Continuar con Google" in login_page.data
+        login_text = login_page.get_data(as_text=True)
+        assert "Aprende jugando." in login_text
+        assert "Materiales, narración oral" not in login_text
+        assert "Los alumnos no crean cuentas" not in login_text
+        assert "El administrador todavía debe configurar" not in login_text
+        assert "MAXCIM no almacena contraseñas" not in login_text
 
         start = client.get("/login/google?next=/material")
         assert start.status_code == 302

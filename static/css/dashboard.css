@@ -1988,17 +1988,6 @@ body {
   line-height: 1.65;
 }
 
-.auth-brand__assurance {
-  max-width: 560px;
-  margin-top: 36px;
-  padding: 16px;
-  color: #d6e1f7;
-  background: rgba(255, 255, 255, 0.07);
-  border-left: 3px solid #56cfaa;
-  font-size: 0.76rem;
-  line-height: 1.55;
-}
-
 .auth-card {
   width: min(480px, calc(100% - 40px));
   margin: auto;
@@ -2021,29 +2010,13 @@ body {
   line-height: 1.15;
 }
 
-.auth-card__description,
-.auth-card__privacy {
-  color: #718097;
-  line-height: 1.55;
-}
-
-.auth-card__description {
-  margin: 12px 0 24px;
-  font-size: 0.83rem;
-}
-
-.auth-card__privacy {
-  margin: 18px 0 0;
-  font-size: 0.68rem;
-}
-
 .auth-form {
   display: grid;
   gap: 16px;
 }
 
 .auth-google-form {
-  margin: 0;
+  margin: 24px 0 0;
 }
 
 .auth-google-button {
@@ -2240,10 +2213,6 @@ body {
   .auth-brand {
     min-height: 310px;
     padding: 42px 24px;
-  }
-
-  .auth-brand__assurance {
-    display: none;
   }
 
   .auth-card {

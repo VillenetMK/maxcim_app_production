@@ -16,20 +16,12 @@
       <div class="auth-brand__mark">MX</div>
       <p class="auth-brand__eyebrow">Colegio CIMA</p>
       <h1>MAXCIM</h1>
-      <p>Materiales, narración oral y seguimiento sociocomunicativo conectado con la identidad institucional.</p>
-      <div class="auth-brand__assurance">Los alumnos no crean cuentas en esta aplicación. MAXCIM valida su ID mediante el servicio institucional autorizado.</div>
+      <p>Aprende jugando.</p>
     </section>
 
     <section class="auth-card" aria-labelledby="loginTitle">
       <p class="auth-card__eyebrow">Acceso docente</p>
       <h2 id="loginTitle">Inicia sesión con tu cuenta institucional</h2>
-      <p class="auth-card__description">La aplicación mostrará únicamente tus aulas, materiales e interacciones reales.</p>
-
-      {% if not api_ready %}
-      <div class="auth-alert auth-alert--warning" role="alert">
-        El administrador todavía debe configurar la conexión institucional del servidor.
-      </div>
-      {% endif %}
       {% if error %}
       <div class="auth-alert auth-alert--error" role="alert">{{ error }}</div>
       {% endif %}
@@ -63,7 +55,6 @@
         </label>
         <button type="submit" class="btn btn--primary" {% if not password_ready %}disabled{% endif %}>Ingresar a MAXCIM</button>
       </form>
-      <p class="auth-card__privacy">MAXCIM no almacena contraseñas ni tokens de Google. La API institucional siempre confirma que la cuenta pertenece a una docente activa.</p>
     </section>
   </main>
 </body>
