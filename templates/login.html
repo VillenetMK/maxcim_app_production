@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132a5e">
+  <meta name="description" content="Acceso institucional a MAXCIM para docentes.">
+  <title>Acceso institucional · MAXCIM</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/maxcim.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body class="auth-body">
+  <main class="auth-layout">
+    <section class="auth-brand">
+      <div class="auth-brand__mark">MX</div>
+      <p class="auth-brand__eyebrow">Colegio CIMA</p>
+      <h1>MAXCIM</h1>
+      <p>Materiales, narración oral y seguimiento sociocomunicativo conectado con la identidad institucional.</p>
+      <div class="auth-brand__assurance">Los alumnos no crean cuentas en esta aplicación. MAXCIM valida su ID mediante el servicio institucional autorizado.</div>
+    </section>
+
+    <section class="auth-card" aria-labelledby="loginTitle">
+      <p class="auth-card__eyebrow">Acceso docente</p>
+      <h2 id="loginTitle">Inicia sesión con tu cuenta institucional</h2>
+      <p class="auth-card__description">La aplicación mostrará únicamente tus aulas, materiales e interacciones reales.</p>
+
+      {% if not api_ready %}
+      <div class="auth-alert auth-alert--warning" role="alert">
+        El administrador todavía debe configurar la conexión institucional del servidor.
+      </div>
+      {% endif %}
+      {% if error %}
+      <div class="auth-alert auth-alert--error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+          <span>ID institucional</span>
+          <input name="institutional_id" autocomplete="username" required maxlength="50" placeholder="Ingresa tu ID del colegio">
+        </label>
+        <label>
+          <span>Credencial institucional</span>
+          <input type="password" name="credential" autocomplete="current-password" required placeholder="Ingresa tu credencial">
+        </label>
+        <button type="submit" class="btn btn--primary" {% if not api_ready %}disabled{% endif %}>Ingresar a MAXCIM</button>
+      </form>
+      <p class="auth-card__privacy">MAXCIM no almacena contraseñas institucionales. La credencial se envía directamente desde el servidor a la API autorizada.</p>
+    </section>
+  </main>
+</body>
+</html>

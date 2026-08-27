@@ -1,0 +1,54 @@
+{% extends "app_shell.html" %}
+
+{% block title %}Tablón · MAXCIM{% endblock %}
+
+{% block content %}
+<div class="content__date">{{ today_label }} · {{ periodo_label }}</div>
+
+<section class="stat-grid">
+  {% for card in stat_cards %}
+  <div class="stat-card" style="--accent: {{ card.color }}">
+    <div class="stat-card__value">{{ card.value }}</div>
+    <div class="stat-card__label">{{ card.label }}</div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="aulas">
+  <h2 class="aulas__title">Mis aulas</h2>
+  <div class="aulas__grid">
+    {% if not aulas %}
+    <div class="empty-state">
+      <span aria-hidden="true">◎</span>
+      <strong>No hay aulas asignadas</strong>
+      <p>La API institucional no devolvió aulas activas para esta docente.</p>
+    </div>
+    {% endif %}
+    {% for aula in aulas %}
+    <div class="aula-card">
+      <div class="aula-card__header">
+        <div class="aula-card__avatar">{{ aula.initials }}</div>
+        <div class="aula-card__meta">
+          <div class="aula-card__name">{{ aula.name }}</div>
+          <div class="aula-card__grade">
+            {{ aula.grade or 'Grado no informado' }}
+            {% if aula.course %} · {{ aula.course }}{% endif %}
+            {% if aula.period %} · {{ aula.period }}{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="aula-card__badges">
+        <span class="badge badge--score">{{ (aula.score ~ '% promedio') if aula.score is not none else 'Sin evaluaciones aprobadas' }}</span>
+        <span class="badge badge--pending">{{ aula.pending }} pendiente{{ 's' if aula.pending != 1 else '' }}</span>
+      </div>
+
+      <div class="aula-card__real-summary">
+        <strong>{{ aula.interactions }}</strong>
+        <span>interacción{{ '' if aula.interactions == 1 else 'es' }} registrada{{ '' if aula.interactions == 1 else 's' }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
