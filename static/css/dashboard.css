@@ -1985,6 +1985,7 @@ body {
   max-width: 540px;
   margin: 16px 0 0;
   color: #c8d3eb;
+  font-size: clamp(1rem, 1.3vw, 1.15rem);
   line-height: 1.65;
 }
 

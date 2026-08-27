@@ -104,7 +104,7 @@ def test_google_login_creates_only_an_institutional_teacher_session():
         assert login_page.status_code == 200
         assert b"Continuar con Google" in login_page.data
         login_text = login_page.get_data(as_text=True)
-        assert "Aprende jugando." in login_text
+        assert "Donde cada historia se convierte en una aventura" in login_text
         assert "Materiales, narración oral" not in login_text
         assert "Los alumnos no crean cuentas" not in login_text
         assert "El administrador todavía debe configurar" not in login_text
