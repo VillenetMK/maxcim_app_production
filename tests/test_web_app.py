@@ -17,6 +17,10 @@ def test_teacher_pages_and_pwa_assets_render(client):
     assert b'id="storyDuration"' in material_page.data
     assert b'min="1" max="15"' in material_page.data
 
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.get_json() == {"status": "ok"}
+
 
 def test_story_validation_runs_before_gemini(client):
     missing_fields = client.post("/api/story/generate", json={"character": "Luna"})

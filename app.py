@@ -69,12 +69,15 @@ def utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-MYSQL_HOST = os.environ.get("MYSQL_HOST", "localhost")
-MYSQL_PORT = os.environ.get("MYSQL_PORT", "3306")
-MYSQL_USER = os.environ.get("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
-MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "")
-SQLALCHEMY_DATABASE_URI = (
+MYSQL_HOST = os.environ.get("MYSQL_HOST") or os.environ.get("MYSQLHOST", "localhost")
+MYSQL_PORT = os.environ.get("MYSQL_PORT") or os.environ.get("MYSQLPORT", "3306")
+MYSQL_USER = os.environ.get("MYSQL_USER") or os.environ.get("MYSQLUSER", "root")
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD") or os.environ.get("MYSQLPASSWORD", "")
+MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE") or os.environ.get("MYSQLDATABASE", "")
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("MYSQL_URL", "")
+if DATABASE_URL.startswith("mysql://"):
+    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
+SQLALCHEMY_DATABASE_URI = DATABASE_URL or (
     f"mysql+pymysql://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASSWORD)}"
     f"@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}?charset=utf8mb4"
 )
@@ -652,6 +655,10 @@ def create_app(test_config: dict | None = None):
     @app.route("/")
     def index():
         return redirect(url_for("dashboard" if current_teacher() else "login"))
+
+    @app.route("/health")
+    def health():
+        return jsonify({"status": "ok"})
 
     @app.route("/login", methods=["GET", "POST"])
     def login():

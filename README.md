@@ -63,6 +63,28 @@ Configurar los secretos en `.env` y ejecutar:
 python app.py
 ```
 
+## Despliegue web real
+
+GitHub Pages no puede ejecutar esta aplicación porque solo publica sitios
+estáticos y MAXCIM utiliza Python, MySQL y APIs del servidor. El repositorio
+incluye un `Dockerfile` listo para desplegarse como servicio web en Railway:
+
+1. Crear un proyecto en Railway desde el repositorio de GitHub.
+2. Agregar un servicio MySQL al mismo proyecto.
+3. Crear en el servicio web `DATABASE_URL=${{MySQL.MYSQL_URL}}`. Si el servicio
+   tiene otro nombre, reemplazar `MySQL` por ese nombre. También se pueden usar
+   por separado `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD` y
+   `MYSQL_DATABASE`.
+4. Agregar las demás variables privadas descritas abajo.
+5. Generar el dominio público desde `Settings > Networking`.
+6. Para conservar audios entre despliegues, montar un volumen persistente en
+   `/app/static/uploads`.
+
+El contenedor crea las tablas faltantes de una base nueva antes de iniciar
+Gunicorn y publica `GET /health` para comprobar el estado del servicio. Si la API
+institucional solo existe dentro de la red del colegio, será necesario exponerla
+de forma segura por HTTPS o conectar el alojamiento a esa red privada.
+
 ## Variables obligatorias
 
 | Variable | Uso |
