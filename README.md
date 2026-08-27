@@ -85,6 +85,9 @@ Gunicorn y publica `GET /health` para comprobar el estado del servicio. Si la AP
 institucional solo existe dentro de la red del colegio, será necesario exponerla
 de forma segura por HTTPS o conectar el alojamiento a esa red privada.
 
+La fecha de carga de cada material se asigna desde la aplicación para mantener
+compatibilidad con las versiones administradas de MySQL usadas en producción.
+
 ## Variables obligatorias
 
 | Variable | Uso |
