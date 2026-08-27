@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from extensions import db
 
 
@@ -37,7 +39,10 @@ class Material(db.Model):
     path_preguntas = db.Column(db.String(500), nullable=False)
     duracion_objetivo_minutos = db.Column(db.SmallInteger, nullable=True)
     duracion_audio_segundos = db.Column(db.Numeric(8, 2), nullable=True)
-    fecha_subido = db.Column(db.Date, server_default=db.func.current_date())
+    # Use an application-side default. SQLAlchemy renders ``func.current_date()``
+    # as ``DEFAULT CURRENT_DATE`` for MySQL, which is rejected by some managed
+    # MySQL versions during the initial schema creation.
+    fecha_subido = db.Column(db.Date, nullable=False, default=date.today)
     # Institutional ID returned by the school's API. It is deliberately not a
     # local FK: the institutional database remains the source of truth.
     fk_user = db.Column(db.String(50), nullable=False, index=True)

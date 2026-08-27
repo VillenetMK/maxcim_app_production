@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `material` (
   `path_texto` VARCHAR(500) NOT NULL,
   `path_audio_resumen` VARCHAR(500) NOT NULL,
   `path_texto_resumen` VARCHAR(500) NOT NULL,
-  `fecha_subido` DATE NOT NULL DEFAULT (CURRENT_DATE),
+  `fecha_subido` DATE NOT NULL,
   `fk_user` VARCHAR(50) NOT NULL,
   `path_preguntas` VARCHAR(500) NOT NULL,
   PRIMARY KEY (`id`),
