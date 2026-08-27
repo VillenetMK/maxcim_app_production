@@ -89,6 +89,9 @@ de forma segura por HTTPS o conectar el alojamiento a esa red privada.
 La fecha de carga de cada material se asigna desde la aplicación para mantener
 compatibilidad con las versiones administradas de MySQL usadas en producción.
 
+Para el dominio actual de Railway, el callback autorizado de Google debe ser
+exactamente `https://maxcimappproduction-production.up.railway.app/auth/google/callback`.
+
 ## Variables obligatorias
 
 | Variable | Uso |
